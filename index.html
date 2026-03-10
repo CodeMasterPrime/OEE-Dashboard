@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>OEE Machine Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+font-family:Arial;
+background:#eef2f7;
+margin:20px;
+}
+
+h1{
+text-align:center;
+color:#183b63;
+}
+
+.dashboard{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:20px;
+}
+
+.card{
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 3px 10px rgba(0,0,0,0.15);
+}
+
+canvas{
+max-height:320px;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>Machine OEE Dashboard</h1>
+
+<div class="dashboard">
+
+<div class="card">
+<h3>OEE by Machine</h3>
+<canvas id="oeeChart"></canvas>
+</div>
+
+<div class="card">
+<h3>Availability / Performance / Quality</h3>
+<canvas id="apqChart"></canvas>
+</div>
+
+</div>
+
+<script>
+
+const sheetID="1y6rQgdm_BwMNJ52vXshJ9whbJWajuqPAf9ZvyNV9tic";
+const sheetName="OEE_Data";
+
+const url=`https://opensheet.elk.sh/${sheetID}/${sheetName}`;
+
+let oeeChart;
+let apqChart;
+
+function loadData(){
+
+fetch(url)
+.then(res=>res.json())
+.then(data=>{
+
+let machines=[];
+let availability=[];
+let performance=[];
+let quality=[];
+let oee=[];
+
+data.forEach(row=>{
+
+let planned=parseFloat(row.PlannedTime);
+let downtime=parseFloat(row.Downtime);
+let total=parseFloat(row.TotalCount);
+let good=parseFloat(row.GoodCount);
+let ideal=parseFloat(row.IdealCycleTime);
+
+if(!planned||!total) return;
+
+let A=(planned-downtime)/planned;
+let P=(ideal*total)/(planned-downtime);
+let Q=good/total;
+let O=A*P*Q;
+
+machines.push(row.Machine);
+availability.push((A*100).toFixed(1));
+performance.push((P*100).toFixed(1));
+quality.push((Q*100).toFixed(1));
+oee.push((O*100).toFixed(1));
+
+});
+
+
+// ถ้ามีกราฟเก่าให้ลบก่อน
+if(oeeChart) oeeChart.destroy();
+if(apqChart) apqChart.destroy();
+
+
+oeeChart=new Chart(document.getElementById("oeeChart"),{
+
+type:"bar",
+
+data:{
+labels:machines,
+datasets:[{
+label:"OEE %",
+data:oee,
+backgroundColor:"#2ecc71"
+}]
+},
+
+options:{
+plugins:{legend:{display:false}},
+scales:{
+y:{beginAtZero:true,max:100}
+}
+}
+
+});
+
+
+apqChart=new Chart(document.getElementById("apqChart"),{
+
+type:"bar",
+
+data:{
+labels:machines,
+datasets:[
+
+{
+label:"Availability",
+data:availability
+},
+
+{
+label:"Performance",
+data:performance
+},
+
+{
+label:"Quality",
+data:quality
+}
+
+]
+
+},
+
+options:{
+scales:{
+y:{beginAtZero:true,max:100}
+}
+}
+
+});
+
+});
+
+}
+
+
+// โหลดครั้งแรก
+loadData();
+
+// รีเฟรชทุก 30 วินาที
+setInterval(loadData,30000);
+
+</script>
+
+</body>
+</html>
